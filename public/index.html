@@ -1,0 +1,2069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ClubOS Friends Trivia — The One With The Trivia Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1A0E08;
+    --bg-2: #2A1810;
+    --bg-card: #3A2418;
+    --ink: #F5EBD8;
+    --ink-dim: rgba(245,235,216,0.6);
+    --ink-faint: rgba(245,235,216,0.2);
+    --gold: #E8B547;
+    --gold-soft: rgba(232,181,71,0.15);
+    --perk-orange: #E87B3C;
+    --perk-cream: #F5E6C8;
+    --correct: #6BC287;
+    --wrong: #E07070;
+
+    /* Character palettes */
+    --ross:     #4A7AB8;  /* paleontologist blue */
+    --ross-dim: #2E4F7A;
+    --rachel:     #E89AAB;  /* coral pink */
+    --rachel-dim: #B8576A;
+    --monica:     #9B72B5;  /* purple */
+    --monica-dim: #6E4F87;
+    --chandler:     #8E9AA8;  /* argyle gray */
+    --chandler-dim: #5C6878;
+    --joey:     #E89A4C;  /* orange */
+    --joey-dim: #B8651F;
+    --phoebe:     #E8C547;  /* eclectic yellow */
+    --phoebe-dim: #B89220;
+
+    /* Theme accent (set dynamically per question) */
+    --theme-color: var(--perk-orange);
+    --theme-glow: rgba(232,123,60,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.5;
+  }
+
+  #root { width: 100%; height: 100%; }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .screen.active { display: flex; opacity: 1; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     TV STYLES
+     ═══════════════════════════════════════════════════════════════ */
+
+  .tv {
+    background:
+      radial-gradient(ellipse at top, rgba(232,181,71,0.08), transparent 60%),
+      radial-gradient(ellipse at bottom, var(--theme-glow), transparent 60%),
+      var(--bg);
+    transition: background 1.5s ease;
+  }
+
+  .tv-header {
+    height: 80px;
+    padding: 0 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(232,181,71,0.15);
+    flex-shrink: 0;
+  }
+  .brand-mark { display: flex; align-items: center; gap: 14px; }
+  .brand-wordmark {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .brand-wordmark .club { color: var(--ink); }
+  .brand-wordmark .os { color: var(--gold); }
+  .brand-divider { width: 1px; height: 24px; background: rgba(232,181,71,0.3); }
+  .game-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 4px;
+    color: var(--ink);
+  }
+  .game-name span { color: var(--gold); }
+
+  .round-indicator {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .round-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .round-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 2px;
+    color: var(--ink);
+  }
+  .round-num span { color: var(--gold); }
+
+  .timer-block { display: flex; align-items: center; gap: 12px; }
+  .timer-circle {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    color: var(--ink);
+    transition: all 0.2s;
+  }
+  .timer-circle.warning { border-color: var(--wrong); color: var(--wrong); animation: pulse 0.6s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  /* ── PLAYER STRIP (N players) ───────────────────── */
+  .player-strip {
+    padding: 16px 56px 12px;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: none;
+  }
+  .player-strip::-webkit-scrollbar { display: none; }
+
+  .pchip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1.5px solid var(--ink-faint);
+    min-width: 180px;
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+  .pchip.locked {
+    box-shadow: 0 0 0 2px var(--gold), 0 0 20px rgba(232,181,71,0.25);
+  }
+  .pchip.correct-flash {
+    border-color: var(--correct);
+    background: rgba(107,194,135,0.1);
+  }
+  .pchip.wrong-flash { opacity: 0.5; }
+
+  .pchip-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-weight: 600;
+    flex-shrink: 0;
+    color: var(--ink);
+  }
+  .pchip-info { flex: 1; min-width: 0; }
+  .pchip-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    line-height: 1;
+    margin-bottom: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pchip-status {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .pchip-status.locked { color: var(--gold); }
+  .pchip-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: 1px;
+    transition: transform 0.4s, color 0.4s;
+  }
+  .pchip-score.bump { transform: scale(1.3); color: var(--correct); }
+
+  /* ── STAGE ─────────────────────────────────────── */
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 56px 24px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .theme-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px;
+    border: 1px solid var(--theme-color);
+    border-radius: 20px;
+    background: rgba(0,0,0,0.3);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--theme-color);
+    margin-bottom: 20px;
+    transition: all 0.6s;
+  }
+  .theme-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--theme-color);
+    transition: background 0.6s;
+  }
+
+  .question-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 44px;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.25;
+    max-width: 1400px;
+    margin-bottom: 30px;
+    color: var(--ink);
+  }
+
+  .answer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    width: 100%;
+    max-width: 1100px;
+  }
+  .answer-tile {
+    background: var(--bg-card);
+    border: 1.5px solid var(--ink-faint);
+    border-radius: 14px;
+    padding: 20px 26px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    transition: all 0.4s;
+    position: relative;
+    overflow: hidden;
+    min-height: 70px;
+  }
+  .answer-tile.reveal-correct {
+    background: rgba(107,194,135,0.15);
+    border-color: var(--correct);
+  }
+  .answer-tile.reveal-wrong { opacity: 0.4; }
+
+  .answer-letter {
+    width: 42px; height: 42px;
+    border-radius: 12px;
+    background: var(--gold-soft);
+    border: 1px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+  .answer-tile.reveal-correct .answer-letter {
+    background: var(--correct);
+    border-color: var(--correct);
+    color: var(--bg);
+  }
+
+  .answer-text {
+    font-size: 20px;
+    color: var(--ink);
+    flex: 1;
+    line-height: 1.3;
+  }
+
+  .answer-pickers {
+    position: absolute;
+    top: 8px; right: 12px;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    max-width: 120px;
+  }
+  .pick-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+  }
+
+  /* Question flags */
+  .question-flag {
+    position: absolute;
+    top: 16px; right: 32px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    font-weight: 700;
+    display: none;
+  }
+  .question-flag.easter {
+    background: var(--gold);
+    color: var(--bg);
+    box-shadow: 0 0 24px rgba(232,181,71,0.5);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+  .question-flag.surprise {
+    background: var(--perk-orange);
+    color: var(--bg);
+  }
+  .question-flag.mastermind {
+    background: var(--gold);
+    color: var(--bg);
+    box-shadow: 0 0 32px rgba(232,181,71,0.5);
+  }
+  @keyframes shimmer {
+    0%, 100% { box-shadow: 0 0 24px rgba(232,181,71,0.5); }
+    50% { box-shadow: 0 0 36px rgba(232,181,71,0.8); }
+  }
+
+  /* ── REVEAL ─────────────────────────────────────── */
+  .reveal-banner {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    border: 1px solid var(--gold);
+    border-radius: 14px;
+    padding: 12px 24px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 90%;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .reveal-banner.show { opacity: 1; }
+  .reveal-pchip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .reveal-pchip.correct { background: rgba(107,194,135,0.2); color: var(--correct); }
+  .reveal-pchip.wrong { background: rgba(224,112,112,0.15); color: var(--wrong); }
+  .reveal-pchip.missed { background: rgba(245,235,216,0.05); color: var(--ink-dim); }
+
+  /* ═══════════════════════════════════════════════════════════════
+     TV LOBBY
+     ═══════════════════════════════════════════════════════════════ */
+
+  .lobby, .countdown, .finale {
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    text-align: center;
+  }
+
+  .lobby-eyebrow {
+    font-size: 13px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+  }
+  .lobby-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 80px;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+  .lobby-title em { font-style: italic; color: var(--perk-orange); }
+  .lobby-subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--ink-dim);
+    letter-spacing: 0.5px;
+    margin-bottom: 48px;
+  }
+
+  .lobby-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 56px;
+    align-items: flex-start;
+    margin-bottom: 36px;
+    width: 100%;
+    max-width: 1200px;
+  }
+  .lobby-qr-block {
+    background: var(--bg-card);
+    border: 1px solid var(--gold);
+    border-radius: 18px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .lobby-qr-img {
+    width: 240px; height: 240px;
+    background: white;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .lobby-qr-label {
+    font-size: 12px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .lobby-qr-url {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-dim);
+    word-break: break-all;
+    text-align: center;
+  }
+
+  .lobby-players-area {
+    text-align: left;
+  }
+  .lobby-players-label {
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .lobby-players-count {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 2px;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .lobby-players-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    min-height: 280px;
+  }
+  .lobby-player {
+    background: var(--bg-card);
+    border: 2px solid;
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: playerJoin 0.5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes playerJoin {
+    from { opacity: 0; transform: scale(0.7) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .lobby-player-empty {
+    background: transparent;
+    border: 1.5px dashed var(--ink-faint);
+    border-radius: 12px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-faint);
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+  .lobby-player-avatar {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 600;
+    flex-shrink: 0;
+    color: var(--ink);
+  }
+  .lobby-player-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    line-height: 1;
+  }
+  .lobby-player-sub {
+    font-size: 10px;
+    color: var(--ink-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  .lobby-cta {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    padding: 18px 56px;
+    border-radius: 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 24px rgba(232,181,71,0.3);
+  }
+  .lobby-cta:active { transform: scale(0.98); }
+  .lobby-cta:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .lobby-instructions {
+    font-size: 14px;
+    color: var(--ink-dim);
+    max-width: 600px;
+    line-height: 1.6;
+    margin-top: 16px;
+  }
+  .lobby-instructions b { color: var(--gold); }
+
+  /* ── COUNTDOWN ─────────────────────────────────── */
+  .countdown-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 320px;
+    line-height: 1;
+    color: var(--perk-orange);
+    animation: countdownPulse 1s ease-out;
+  }
+  .countdown-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 32px;
+    color: var(--ink-dim);
+    margin-top: 16px;
+  }
+  @keyframes countdownPulse {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── FINALE ─────────────────────────────────────── */
+  .finale-eyebrow {
+    font-size: 13px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 18px;
+  }
+  .finale-winner-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 96px;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 6px;
+    color: var(--perk-orange);
+  }
+  .finale-tagline {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 26px;
+    color: var(--ink-dim);
+    margin-bottom: 36px;
+  }
+  .finale-leaderboard {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 700px;
+    margin-bottom: 32px;
+  }
+  .finale-row {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border: 1.5px solid var(--ink-faint);
+    text-align: left;
+  }
+  .finale-row.top-1 { border-color: var(--gold); box-shadow: 0 0 24px rgba(232,181,71,0.2); }
+  .finale-row.top-2 { border-color: var(--ink-dim); }
+  .finale-row.top-3 { border-color: rgba(184,134,11,0.5); }
+
+  .finale-rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--gold);
+    width: 36px;
+    flex-shrink: 0;
+  }
+  .finale-row-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .finale-row-info { flex: 1; }
+  .finale-row-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+  .finale-row-bracelets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .bracelet {
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: var(--gold-soft);
+    border: 1px solid var(--gold);
+    border-radius: 11px;
+    padding: 2px 8px;
+    font-weight: 600;
+  }
+  .finale-row-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .finale-row-score-of {
+    font-size: 13px;
+    color: var(--ink-dim);
+    margin-left: 4px;
+  }
+
+  .finale-cta {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    padding: 18px 48px;
+    border-radius: 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 4px;
+    cursor: pointer;
+  }
+  .finale-cta:active { transform: scale(0.98); }
+
+  /* TV Footer */
+  .tv-footer {
+    height: 44px;
+    padding: 0 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid rgba(232,181,71,0.15);
+    background: var(--bg);
+    flex-shrink: 0;
+  }
+  .tv-footer-text {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .tv-footer-text b { color: var(--gold); }
+
+  /* ═══════════════════════════════════════════════════════════════
+     PHONE STYLES
+     ═══════════════════════════════════════════════════════════════ */
+
+  body.is-phone, body.is-phone html { overflow-y: auto; height: 100vh; }
+
+  .phone-screen {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    padding: 24px 20px;
+    display: none;
+    flex-direction: column;
+  }
+  .phone-screen.active { display: flex; }
+
+  /* Phone: Character Picker */
+  .pp-eyebrow {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 12px;
+    margin-top: 24px;
+  }
+  .pp-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 32px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+  .pp-title em { font-style: italic; color: var(--perk-orange); }
+  .pp-subtitle {
+    font-size: 14px;
+    text-align: center;
+    color: var(--ink-dim);
+    margin-bottom: 28px;
+  }
+  .pp-char-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .pp-char-btn {
+    background: var(--bg-card);
+    border: 2px solid;
+    border-radius: 14px;
+    padding: 18px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .pp-char-btn:active { transform: scale(0.96); }
+  .pp-char-btn[disabled] {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .pp-char-avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    margin: 0 auto 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .pp-char-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 3px;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+  .pp-char-status {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  .pp-other-btn {
+    background: var(--bg-card);
+    border: 2px dashed var(--ink-faint);
+    border-radius: 14px;
+    padding: 16px;
+    cursor: pointer;
+    color: var(--ink-dim);
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .pp-other-btn:active { transform: scale(0.98); }
+
+  .pp-custom-area { display: none; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .pp-custom-area.active { display: flex; }
+  .pp-custom-input {
+    background: var(--bg-card);
+    border: 2px solid var(--gold);
+    color: var(--ink);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    outline: none;
+  }
+  .pp-custom-input::placeholder { color: var(--ink-faint); }
+  .pp-custom-confirm {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    cursor: pointer;
+  }
+  .pp-custom-confirm:disabled { opacity: 0.4; }
+
+  /* Phone: Waiting */
+  .pw-banner {
+    background: var(--bg-card);
+    border: 2px solid;
+    border-radius: 18px;
+    padding: 32px 24px;
+    text-align: center;
+    margin: auto 0;
+  }
+  .pw-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .pw-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 5px;
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+  .pw-message {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .pw-submessage {
+    font-size: 13px;
+    color: var(--ink-dim);
+    letter-spacing: 0.5px;
+  }
+  .pw-loader {
+    display: inline-block;
+    width: 24px; height: 24px;
+    border: 2px solid var(--ink-faint);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-top: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Phone: Question */
+  .pq-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--ink-faint);
+    margin-bottom: 18px;
+  }
+  .pq-player-tag {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .pq-player-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+  }
+  .pq-player-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+  }
+  .pq-round {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .pq-round span { color: var(--gold); }
+
+  .pq-flag {
+    text-align: center;
+    margin-bottom: 14px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    font-weight: 700;
+    align-self: center;
+  }
+  .pq-flag.easter { background: var(--gold); color: var(--bg); }
+  .pq-flag.surprise { background: var(--perk-orange); color: var(--bg); }
+  .pq-flag.mastermind { background: var(--gold); color: var(--bg); }
+  .pq-flag.hidden { display: none; }
+
+  .pq-question {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    line-height: 1.3;
+    color: var(--ink);
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 500;
+  }
+  .pq-timer-bar {
+    height: 6px;
+    background: var(--ink-faint);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .pq-timer-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--correct), var(--gold), var(--wrong));
+    width: 100%;
+    transition: width 0.95s linear;
+  }
+  .pq-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  .pq-option {
+    background: var(--bg-card);
+    border: 2px solid var(--ink-faint);
+    border-radius: 14px;
+    padding: 18px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--ink);
+    transition: all 0.2s;
+  }
+  .pq-option:active { transform: scale(0.98); }
+  .pq-option.locked { border-color: var(--gold); background: var(--gold-soft); }
+  .pq-option[disabled] { opacity: 0.5; pointer-events: none; }
+
+  .pq-option-letter {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--gold-soft);
+    border: 1px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+  .pq-option-text {
+    flex: 1;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  /* Phone: Reveal */
+  .pr-banner {
+    background: var(--bg-card);
+    border: 2px solid;
+    border-radius: 18px;
+    padding: 28px 20px;
+    text-align: center;
+    margin: auto 0;
+  }
+  .pr-banner.correct { border-color: var(--correct); }
+  .pr-banner.wrong { border-color: var(--wrong); }
+  .pr-result {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    letter-spacing: 6px;
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+  .pr-banner.correct .pr-result { color: var(--correct); }
+  .pr-banner.wrong .pr-result { color: var(--wrong); }
+  .pr-message {
+    font-size: 14px;
+    color: var(--ink-dim);
+    margin-bottom: 8px;
+  }
+  .pr-correct-answer {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+  .pr-bracelet {
+    margin-top: 12px;
+    padding: 10px 18px;
+    background: var(--gold-soft);
+    border: 1px solid var(--gold);
+    border-radius: 12px;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 600;
+    display: inline-block;
+  }
+
+  /* Phone: Finale */
+  .pf-card {
+    margin: auto 0;
+    text-align: center;
+    background: var(--bg-card);
+    border: 2px solid var(--gold);
+    border-radius: 18px;
+    padding: 28px 20px;
+  }
+  .pf-result {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+  }
+  .pf-rank {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink-dim);
+    margin-bottom: 12px;
+  }
+  .pf-score-line {
+    font-family: 'DM Mono', monospace;
+    color: var(--ink-dim);
+    margin-bottom: 14px;
+  }
+  .pf-score-line span { color: var(--ink); font-weight: 600; }
+
+  .phone-footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .phone-footer span { color: var(--gold); }
+
+  body.is-tv .phone-screen { display: none !important; }
+  body.is-phone .screen { display: none !important; }
+</style>
+</head>
+<body>
+<div id="root">
+
+  <!-- ─── TV LOBBY ──────────────────────────────────────────────── -->
+  <div class="screen lobby tv" id="tv-lobby">
+    <div class="lobby-eyebrow">ClubOS Games · Trivia</div>
+    <h1 class="lobby-title">The One With <em>The Trivia</em></h1>
+    <p class="lobby-subtitle">Could this BE any more fun? Pick a friend.</p>
+
+    <div class="lobby-grid">
+      <div class="lobby-qr-block">
+        <img id="lobbyQR" class="lobby-qr-img" alt="Scan to play">
+        <div class="lobby-qr-label">Scan to Play</div>
+        <div class="lobby-qr-url" id="lobbyURL"></div>
+      </div>
+
+      <div class="lobby-players-area">
+        <div class="lobby-players-label">
+          <span>Players in the Lobby</span>
+          <span class="lobby-players-count" id="lobbyCount">0</span>
+        </div>
+        <div class="lobby-players-grid" id="lobbyPlayersGrid">
+          <div class="lobby-player-empty">Waiting for players…</div>
+          <div class="lobby-player-empty">Waiting for players…</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="lobby-cta" id="startGameBtn" disabled>Start the Game</button>
+    <p class="lobby-instructions">
+      <b>1v1?</b> Each grab a character, click Start.<br>
+      <b>Dinner party?</b> Up to 8 players. First six get the canonical six — others pick "Custom".
+    </p>
+  </div>
+
+  <!-- ─── TV COUNTDOWN ──────────────────────────────────────────── -->
+  <div class="screen countdown tv" id="tv-countdown">
+    <div class="countdown-num" id="countdownNum">3</div>
+    <div class="countdown-label">Could this BE more exciting?</div>
+  </div>
+
+  <!-- ─── TV GAME ──────────────────────────────────────────────── -->
+  <div class="screen tv" id="tv-game">
+    <div class="tv-header">
+      <div class="brand-mark">
+        <div class="brand-wordmark"><span class="club">Club</span><span class="os">OS</span></div>
+        <div class="brand-divider"></div>
+        <div class="game-name">FRIENDS <span>TRIVIA</span></div>
+      </div>
+      <div class="round-indicator">
+        <div class="round-label">Question</div>
+        <div class="round-num"><span id="qNumCurrent">1</span> / 13</div>
+      </div>
+      <div class="timer-block">
+        <div class="timer-circle" id="tvTimer">25</div>
+      </div>
+    </div>
+
+    <div class="player-strip" id="playerStrip"></div>
+
+    <div class="stage" id="tvStage">
+      <div class="question-flag" id="qFlag"></div>
+      <div class="theme-tag"><div class="theme-dot"></div><span id="themeName">Central Perk</span></div>
+      <div class="question-text" id="qText"></div>
+      <div class="answer-grid" id="qOptions"></div>
+      <div class="reveal-banner" id="revealBanner"></div>
+    </div>
+
+    <div class="tv-footer">
+      <div class="tv-footer-text">Powered by <b>ClubOS Games</b></div>
+      <div class="tv-footer-text">The One With The <b>Trivia</b></div>
+    </div>
+  </div>
+
+  <!-- ─── TV FINALE ────────────────────────────────────────────── -->
+  <div class="screen finale tv" id="tv-finale">
+    <div class="finale-eyebrow">The Verdict</div>
+    <div class="finale-winner-name" id="winnerName">—</div>
+    <div class="finale-tagline" id="winnerTagline">—</div>
+    <div class="finale-leaderboard" id="finaleLeaderboard"></div>
+    <button class="finale-cta" id="playAgainBtn">Play Again</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       PHONE SCREENS
+       ═══════════════════════════════════════════════════════════ -->
+
+  <div class="phone-screen" id="ph-picker">
+    <div class="pp-eyebrow">ClubOS Games</div>
+    <h2 class="pp-title">The One With <em>The Trivia</em></h2>
+    <p class="pp-subtitle">Pick your character</p>
+
+    <div class="pp-char-grid" id="ppCharGrid"></div>
+
+    <button class="pp-other-btn" id="ppOtherBtn">+ Play as someone else</button>
+
+    <div class="pp-custom-area" id="ppCustomArea">
+      <input type="text" class="pp-custom-input" id="ppCustomInput" placeholder="Type your name…" maxlength="14">
+      <button class="pp-custom-confirm" id="ppCustomConfirm" disabled>Join the Game</button>
+    </div>
+
+    <div class="phone-footer">Powered by <span>ClubOS Games</span></div>
+  </div>
+
+  <div class="phone-screen" id="ph-waiting">
+    <div class="pw-banner" id="pwBanner">
+      <div class="pw-avatar" id="pwAvatar">—</div>
+      <div class="pw-name" id="pwName">—</div>
+      <div class="pw-message" id="pwMessage">You're in. Waiting for the others.</div>
+      <div class="pw-submessage" id="pwSubmessage">The host will start the game.</div>
+      <div class="pw-loader"></div>
+    </div>
+    <div class="phone-footer">ClubOS Games · <span>Friends Trivia</span></div>
+  </div>
+
+  <div class="phone-screen" id="ph-question">
+    <div class="pq-header">
+      <div class="pq-player-tag">
+        <div class="pq-player-dot" id="pqDot"></div>
+        <div class="pq-player-name" id="pqName">—</div>
+      </div>
+      <div class="pq-round">Q<span id="pqQNum">1</span> / 13</div>
+    </div>
+    <div class="pq-flag hidden" id="pqFlag"></div>
+    <div class="pq-question" id="pqText"></div>
+    <div class="pq-timer-bar"><div class="pq-timer-fill" id="pqTimerFill"></div></div>
+    <div class="pq-options" id="pqOptions"></div>
+  </div>
+
+  <div class="phone-screen" id="ph-reveal">
+    <div class="pr-banner" id="prBanner">
+      <div class="pr-result" id="prResult">—</div>
+      <div class="pr-message" id="prMessage">—</div>
+      <div class="pr-correct-answer" id="prCorrect">—</div>
+      <div id="prBraceletWrap"></div>
+    </div>
+    <div class="phone-footer">Q<span id="prQNum">1</span> of 13</div>
+  </div>
+
+  <div class="phone-screen" id="ph-finale">
+    <div class="pf-card">
+      <div class="pf-result" id="pfResult">—</div>
+      <div class="pf-rank" id="pfRank">—</div>
+      <div class="pf-score-line">Your Score: <span id="pfYouScore">0</span> / 13</div>
+      <div class="finale-row-bracelets" id="pfBracelets" style="justify-content:center;"></div>
+    </div>
+    <div class="phone-footer">Powered by <span>ClubOS Games</span></div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CLUBOS FRIENDS TRIVIA · "THE ONE WITH THE TRIVIA"
+//  Multi-player capable (2-8) · TV + QR phones · Supabase realtime
+// ═══════════════════════════════════════════════════════════════
+
+const SUPA_URL = 'https://ykfvwqewnfnibpzytspn.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZnZ3cWV3bmZuaWJwenl0c3BuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MjE2NzYsImV4cCI6MjA5MDM5NzY3Nn0.cnMztZVHDV3Hof-26aRi4NIM7wKwjzxAfoMBR3oItms';
+const ROOM = 'clubos-friends-trivia-room';
+const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const params = new URLSearchParams(location.search);
+const mode = params.has('play') ? 'phone' : 'tv';
+document.body.classList.add(mode === 'tv' ? 'is-tv' : 'is-phone');
+
+let myPlayerId = null;
+let myCharacter = null;
+
+// ── CHARACTERS ─────────────────────────────────────────────────
+const CHARACTERS = [
+  { id: 'ross',     name: 'Ross',     initial: 'R', color: '#4A7AB8', deep: '#2E4F7A', tag: 'Pivot!' },
+  { id: 'rachel',   name: 'Rachel',   initial: 'R', color: '#E89AAB', deep: '#B8576A', tag: 'No uterus, no opinion' },
+  { id: 'monica',   name: 'Monica',   initial: 'M', color: '#9B72B5', deep: '#6E4F87', tag: 'I KNOW!' },
+  { id: 'chandler', name: 'Chandler', initial: 'C', color: '#8E9AA8', deep: '#5C6878', tag: 'Could I BE…' },
+  { id: 'joey',     name: 'Joey',     initial: 'J', color: '#E89A4C', deep: '#B8651F', tag: 'How you doin?' },
+  { id: 'phoebe',   name: 'Phoebe',   initial: 'P', color: '#E8C547', deep: '#B89220', tag: 'Smelly Cat' }
+];
+
+// Theme rotation for questions — cycles characters across 13 slots
+function themeForSlot(slot) {
+  if (slot === 12) return { name: 'The Twist', color: '#E8B547', glow: 'rgba(232,181,71,0.16)' };
+  if (slot === 13) return { name: 'The Big One', color: '#E8B547', glow: 'rgba(232,181,71,0.18)' };
+  const characters = [
+    { name: 'Central Perk',  color: '#E87B3C', glow: 'rgba(232,123,60,0.12)' },
+    { name: "Ross's World",  color: '#4A7AB8', glow: 'rgba(74,122,184,0.12)' },
+    { name: "Rachel's Lane", color: '#E89AAB', glow: 'rgba(232,154,171,0.12)' },
+    { name: "Monica's Kitchen", color: '#9B72B5', glow: 'rgba(155,114,181,0.12)' },
+    { name: "Chandler's Joke", color: '#8E9AA8', glow: 'rgba(142,154,168,0.12)' },
+    { name: "Joey's Reading", color: '#E89A4C', glow: 'rgba(232,154,76,0.12)' },
+    { name: "Phoebe's Song", color: '#E8C547', glow: 'rgba(232,197,71,0.12)' },
+    { name: 'The Apartment',  color: '#9B72B5', glow: 'rgba(155,114,181,0.10)' },
+    { name: 'Central Perk',  color: '#E87B3C', glow: 'rgba(232,123,60,0.12)' },
+    { name: "Ross's World",  color: '#4A7AB8', glow: 'rgba(74,122,184,0.12)' },
+    { name: 'The Apartment',  color: '#E89AAB', glow: 'rgba(232,154,171,0.10)' }
+  ];
+  return characters[(slot - 1) % characters.length];
+}
+
+// ── QUESTION POOL ──────────────────────────────────────────────
+const QUESTION_POOL = [
+  // Episodes & plotlines
+  { cat: 'episode', q: 'In "The One Where Ross Got High," what does Rachel accidentally put in the dessert trifle?', opts: ['Custard','Ground beef','Salmon','Pickles'], a: 1 },
+  { cat: 'episode', q: 'In "The One With the Embryos," what do Monica and Rachel lose to Joey and Chandler in a trivia game?', opts: ['$1,000','Their dignity','Their apartment','A dinner'], a: 2 },
+  { cat: 'episode', q: 'In the series finale, where is Rachel almost off to before Ross stops her?', opts: ['London','Paris','Tokyo','Rome'], a: 1 },
+  { cat: 'episode', q: 'In "The One With the Prom Video," what is revealed about Ross\'s prom?', opts: ['He ditched Rachel','He was going to take Rachel when her date didn\'t show','He never went','He took Monica'], a: 1 },
+
+  // Catchphrases
+  { cat: 'catch', q: "Joey's signature pickup line is:", opts: ['"Hey there!"','"How you doin?"','"What\'s up?"','"Yo, gorgeous"'], a: 1 },
+  { cat: 'catch', q: 'Which character is famous for yelling "PIVOT!" while moving a couch?', opts: ['Joey','Chandler','Ross','Monica'], a: 2 },
+  { cat: 'catch', q: 'Who sings the song "Smelly Cat"?', opts: ['Monica','Rachel','Phoebe','Janice'], a: 2 },
+  { cat: 'catch', q: 'Whose signature exclamation is "OH. MY. GOD."?', opts: ['Phoebe','Monica','Janice','Ursula'], a: 2 },
+  { cat: 'catch', q: 'Chandler is famous for the construction: "Could I BE any more ___?"', opts: ['Bored','[anything]','Wrong','Late'], a: 1 },
+
+  // Jobs & backstories
+  { cat: 'job', q: "What is Ross's profession at the start of the series?", opts: ['Lawyer','Paleontologist','Doctor','Professor of art'], a: 1 },
+  { cat: 'job', q: 'On what soap opera does Joey play Dr. Drake Ramoray?', opts: ['General Hospital','Days of Our Lives','The Young and the Restless','All My Children'], a: 1 },
+  { cat: 'job', q: "Which character's job is the running joke that no one knows what they do?", opts: ['Joey','Chandler','Ross','Phoebe'], a: 1 },
+  { cat: 'job', q: 'What instrument does Phoebe play at Central Perk?', opts: ['Piano','Guitar','Ukulele','Tambourine'], a: 1 },
+  { cat: 'job', q: "What is Rachel's first job in the series?", opts: ['Fashion buyer','Waitress at Central Perk','Coffee shop manager','Office assistant'], a: 1 },
+
+  // Relationships
+  { cat: 'love', q: "Ross's infamous defense for cheating on Rachel:", opts: ['"She was nothing"','"We were on a break"','"I was confused"','"I love you, not her"'], a: 1 },
+  { cat: 'love', q: 'Who does Phoebe marry in the final seasons?', opts: ['David the scientist','Mike Hannigan','Gary the cop','Sergei'], a: 1 },
+  { cat: 'love', q: 'Who is Ross\'s second wife (after Carol)?', opts: ['Rachel','Emily','Mona','Julie'], a: 1 },
+  { cat: 'love', q: 'At the London wedding, Ross says the wrong name at the altar. Whose name?', opts: ['Carol','Rachel','Monica','Susan'], a: 1 },
+
+  // Recurring characters
+  { cat: 'side', q: 'Who is the Central Perk manager with an unrequited crush on Rachel?', opts: ['Gunther','Earl','Larry','Hank'], a: 0 },
+  { cat: 'side', q: "Phoebe's twin sister is named:", opts: ['Estelle','Ursula','Pearl','Janet'], a: 1 },
+  { cat: 'side', q: 'Brad Pitt guest-starred as a character with a strong opinion about whom?', opts: ['Ross','Chandler','Rachel','Joey'], a: 2 },
+
+  // Running gags
+  { cat: 'gag', q: 'What two animals do Joey and Chandler keep as pets?', opts: ['Cat and dog','Chick and duck','Hamster and rabbit','Fish and turtle'], a: 1 },
+  { cat: 'gag', q: 'What is Joey\'s rule about food?', opts: ['Joey shares food','Joey doesn\'t share food','Joey buys food','Joey freezes food'], a: 1 },
+  { cat: 'gag', q: 'What color is the iconic couch at Central Perk?', opts: ['Red','Brown','Orange','Yellow'], a: 2 },
+  { cat: 'gag', q: 'What does Monica secretly hide in her closet?', opts: ['Old photos','A mess','Boyfriend\'s stuff','Christmas decorations'], a: 1 },
+
+  // Show trivia
+  { cat: 'show', q: 'How many seasons did Friends run?', opts: ['8','9','10','11'], a: 2 },
+  { cat: 'show', q: 'In what city is Friends set?', opts: ['Chicago','Boston','New York','Los Angeles'], a: 2 },
+  { cat: 'show', q: 'Phoebe\'s side career is as a:', opts: ['Yoga teacher','Massage therapist','Aromatherapist','Personal trainer'], a: 1 },
+
+  // Mastermind tier
+  { cat: 'master', q: "What is Chandler's middle name?", opts: ['Mark','Muriel','Matthew','Marcus'], a: 1 },
+  { cat: 'master', q: 'In the storyline at series end, Rachel takes a job in Paris with which luxury brand?', opts: ['Chanel','Dior','Louis Vuitton','Hermès'], a: 2 },
+  { cat: 'master', q: 'What is the name of Ross\'s son with his first wife Carol?', opts: ['Ben','Sam','David','Jacob'], a: 0 },
+  { cat: 'master', q: "Joey's agent is named:", opts: ['Estelle','Linda','Susan','Mary'], a: 0 },
+  { cat: 'master', q: 'Who plays both Phoebe and her twin sister Ursula?', opts: ['Two different actresses','Lisa Kudrow (both)','CGI','A body double'], a: 1 }
+];
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function buildGameQuestions() {
+  const byCat = {};
+  QUESTION_POOL.forEach(q => { (byCat[q.cat] = byCat[q.cat] || []).push(q); });
+  Object.values(byCat).forEach(arr => shuffle(arr));
+
+  const plan = ['episode','episode','catch','catch','catch','job','job','love','love','side','gag','show','master'];
+  const picked = [];
+  plan.forEach(cat => {
+    const q = byCat[cat] && byCat[cat].pop();
+    if (q) picked.push(q);
+  });
+  const remaining = QUESTION_POOL.filter(q => !picked.includes(q));
+  shuffle(remaining);
+  while (picked.length < 13) picked.push(remaining.pop());
+
+  shuffle(picked);
+
+  // Q13 = Mastermind — promote a 'master' question into slot 13
+  const masterIdx = picked.findIndex(q => q.cat === 'master');
+  if (masterIdx >= 0 && masterIdx !== 12) {
+    [picked[12], picked[masterIdx]] = [picked[masterIdx], picked[12]];
+  }
+
+  const easterSlot = 3 + Math.floor(Math.random() * 7);
+  return picked.map((q, i) => ({
+    ...q,
+    slot: i + 1,
+    isEaster: i === easterSlot,
+    isSurprise: i === 11,
+    isMastermind: i === 12
+  }));
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+let state = {
+  phase: 'lobby',
+  players: {},          // playerId -> { name, character, color, deep, score, streak, bracelets, joinedAt }
+  currentQ: 0,
+  questions: [],
+  answers: {},          // currentQ -> playerId -> answerIdx
+  questionStartedAt: 0,
+  timeLimit: 25
+};
+let myAnswered = false;
+let channel = null;
+
+function show(screenId) {
+  document.querySelectorAll('.screen, .phone-screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(screenId);
+  if (el) el.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CHANNEL
+// ═══════════════════════════════════════════════════════════════
+function initChannel() {
+  channel = supa.channel(ROOM, { config: { broadcast: { self: true, ack: false } } });
+
+  channel.on('broadcast', { event: 'state' }, (payload) => {
+    if (mode === 'phone') applyState(payload.payload);
+  });
+
+  channel.on('broadcast', { event: 'join' }, (payload) => {
+    if (mode === 'tv') {
+      const p = payload.payload;
+      if (state.phase !== 'lobby') return;
+      if (Object.keys(state.players).length >= 8) return;
+      // Character collision: server-side authoritative
+      if (p.character && Object.values(state.players).some(pl => pl.character === p.character)) return;
+      state.players[p.id] = {
+        id: p.id,
+        name: p.name,
+        character: p.character,
+        color: p.color,
+        deep: p.deep,
+        initial: p.initial,
+        score: 0,
+        streak: 0,
+        bracelets: [],
+        joinedAt: Date.now()
+      };
+      broadcastState();
+    }
+  });
+
+  channel.on('broadcast', { event: 'start' }, () => {
+    if (mode === 'tv' && state.phase === 'lobby' && Object.keys(state.players).length >= 2) {
+      startCountdown();
+    }
+  });
+
+  channel.on('broadcast', { event: 'answer' }, (payload) => {
+    if (mode === 'tv') handlePlayerAnswer(payload.payload);
+  });
+
+  channel.on('broadcast', { event: 'restart' }, () => {
+    if (mode === 'tv') resetGame();
+  });
+
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      if (mode === 'tv') broadcastState();
+    }
+  });
+}
+
+function broadcastState() {
+  channel.send({ type: 'broadcast', event: 'state', payload: state });
+  if (mode === 'tv') renderTV();
+}
+
+function applyState(s) {
+  state = s;
+  renderPhone();
+}
+
+function sendJoin(player) {
+  channel.send({ type: 'broadcast', event: 'join', payload: player });
+}
+function sendStart() {
+  channel.send({ type: 'broadcast', event: 'start', payload: {} });
+}
+function sendAnswer(idx) {
+  channel.send({ type: 'broadcast', event: 'answer', payload: { playerId: myPlayerId, answerIdx: idx } });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GAME FLOW
+// ═══════════════════════════════════════════════════════════════
+function resetGame() {
+  const existing = state.players;
+  Object.values(existing).forEach(p => {
+    p.score = 0;
+    p.streak = 0;
+    p.bracelets = [];
+  });
+  state = {
+    phase: 'lobby',
+    players: existing,
+    currentQ: 0,
+    questions: [],
+    answers: {},
+    questionStartedAt: 0,
+    timeLimit: 25
+  };
+  broadcastState();
+}
+
+function startCountdown() {
+  state.phase = 'countdown';
+  state.questions = buildGameQuestions();
+  state.currentQ = 0;
+  state.answers = {};
+  broadcastState();
+
+  let n = 3;
+  const num = document.getElementById('countdownNum');
+  num.textContent = n;
+  const tick = setInterval(() => {
+    n--;
+    if (n <= 0) {
+      clearInterval(tick);
+      startQuestion();
+    } else {
+      num.textContent = n;
+      num.style.animation = 'none';
+      void num.offsetWidth;
+      num.style.animation = 'countdownPulse 1s ease-out';
+    }
+  }, 1000);
+}
+
+function startQuestion() {
+  state.phase = 'question';
+  state.answers[state.currentQ] = {};
+  const q = state.questions[state.currentQ];
+  state.timeLimit = q.isMastermind ? 35 : 25;
+  state.questionStartedAt = Date.now();
+  broadcastState();
+  runTimer();
+}
+
+let timerInterval = null;
+function runTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  const tvT = document.getElementById('tvTimer');
+  let remaining = state.timeLimit;
+  tvT.textContent = remaining;
+  tvT.classList.remove('warning');
+
+  timerInterval = setInterval(() => {
+    remaining--;
+    if (tvT) {
+      tvT.textContent = Math.max(0, remaining);
+      if (remaining <= 5) tvT.classList.add('warning');
+    }
+    const ans = state.answers[state.currentQ] || {};
+    const playerIds = Object.keys(state.players);
+    const allIn = playerIds.every(id => ans[id] !== undefined);
+    if (remaining <= 0 || allIn) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      revealAnswer();
+    }
+  }, 1000);
+}
+
+function handlePlayerAnswer({ playerId, answerIdx }) {
+  if (state.phase !== 'question') return;
+  if (!state.players[playerId]) return;
+  state.answers[state.currentQ] = state.answers[state.currentQ] || {};
+  if (state.answers[state.currentQ][playerId] !== undefined) return;
+  state.answers[state.currentQ][playerId] = answerIdx;
+  broadcastState();
+}
+
+function revealAnswer() {
+  state.phase = 'reveal';
+  const q = state.questions[state.currentQ];
+  const ans = state.answers[state.currentQ] || {};
+  const correctIdx = q.a;
+  let mult = 1;
+  if (q.isMastermind || q.isEaster) mult = 2;
+
+  Object.keys(state.players).forEach(pid => {
+    if (ans[pid] === correctIdx) {
+      state.players[pid].score += mult;
+      state.players[pid].streak += 1;
+      checkBracelets(pid);
+    } else {
+      state.players[pid].streak = 0;
+    }
+  });
+
+  broadcastState();
+
+  setTimeout(() => {
+    if (state.currentQ < 12) {
+      state.currentQ++;
+      startQuestion();
+    } else {
+      goToFinale();
+    }
+  }, 5000);
+}
+
+function checkBracelets(pid) {
+  const p = state.players[pid];
+  const has = (id) => p.bracelets.some(b => b.id === id);
+  const add = (id, label) => { if (!has(id)) p.bracelets.push({ id, label }); };
+  const q = state.questions[state.currentQ];
+
+  if (p.streak === 1 && p.score > 0 && !has('first')) add('first', 'How You Doin?');
+  if (p.streak === 3) add('streak3', 'Pivot!');
+  if (p.streak === 5) add('streak5', 'Moo Point');
+  if (q && q.isMastermind && state.answers[state.currentQ][pid] === q.a) add('mastermind', 'Could I BE…');
+  if (q && q.isEaster && state.answers[state.currentQ][pid] === q.a) add('easter', 'Smelly Cat');
+}
+
+function goToFinale() {
+  state.phase = 'finale';
+  Object.values(state.players).forEach(p => {
+    const has = (id) => p.bracelets.some(b => b.id === id);
+    if (p.score >= 10 && !has('brain')) p.bracelets.push({ id: 'brain', label: 'The One With The Brain' });
+    if (p.score === 13 && !has('lobster')) p.bracelets.push({ id: 'lobster', label: 'Lobster' });
+  });
+  broadcastState();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TV RENDER
+// ═══════════════════════════════════════════════════════════════
+function renderTV() {
+  if (mode !== 'tv') return;
+  if (state.phase === 'lobby') return renderTVLobby();
+  if (state.phase === 'countdown') return show('tv-countdown');
+  if (state.phase === 'question' || state.phase === 'reveal') {
+    show('tv-game');
+    renderQuestionTV();
+    return;
+  }
+  if (state.phase === 'finale') {
+    show('tv-finale');
+    renderFinaleTV();
+    return;
+  }
+}
+
+function renderTVLobby() {
+  show('tv-lobby');
+  const playersArr = Object.values(state.players).sort((a,b) => a.joinedAt - b.joinedAt);
+  document.getElementById('lobbyCount').textContent = playersArr.length;
+
+  const grid = document.getElementById('lobbyPlayersGrid');
+  let html = playersArr.map(p => `
+    <div class="lobby-player" style="border-color: ${p.color};">
+      <div class="lobby-player-avatar" style="background: ${p.deep};">${p.initial}</div>
+      <div>
+        <div class="lobby-player-name" style="color: ${p.color};">${escapeHtml(p.name)}</div>
+        ${p.character ? `<div class="lobby-player-sub">as ${escapeHtml(charById(p.character).name)}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+  // Pad with empties up to 6 slots minimum
+  const padTo = Math.max(2, Math.min(8, playersArr.length + 2));
+  for (let i = playersArr.length; i < padTo; i++) {
+    html += `<div class="lobby-player-empty">Waiting for player…</div>`;
+  }
+  grid.innerHTML = html;
+
+  const btn = document.getElementById('startGameBtn');
+  btn.disabled = playersArr.length < 2;
+  btn.textContent = playersArr.length < 2 ? 'Need at least 2 players' : `Start the Game (${playersArr.length})`;
+}
+
+function renderQuestionTV() {
+  const q = state.questions[state.currentQ];
+  if (!q) return;
+  const theme = themeForSlot(q.slot);
+  document.body.style.setProperty('--theme-color', theme.color);
+  document.body.style.setProperty('--theme-glow', theme.glow);
+  document.getElementById('themeName').textContent = theme.name;
+
+  document.getElementById('qNumCurrent').textContent = q.slot;
+  document.getElementById('qText').textContent = q.q;
+
+  const flag = document.getElementById('qFlag');
+  if (q.isMastermind) {
+    flag.style.display = 'block';
+    flag.className = 'question-flag mastermind';
+    flag.textContent = '✦ The Big One · 2× Points';
+  } else if (q.isEaster) {
+    flag.style.display = 'block';
+    flag.className = 'question-flag easter';
+    flag.textContent = '✨ The Twist · 2× Points';
+  } else if (q.isSurprise) {
+    flag.style.display = 'block';
+    flag.className = 'question-flag surprise';
+    flag.textContent = '♪ The One With The…';
+  } else {
+    flag.style.display = 'none';
+  }
+
+  const opts = document.getElementById('qOptions');
+  const ans = state.answers[state.currentQ] || {};
+  const showReveal = state.phase === 'reveal';
+
+  opts.innerHTML = q.opts.map((o, i) => {
+    const letter = ['A','B','C','D'][i];
+    let cls = 'answer-tile';
+    if (showReveal) {
+      cls += (i === q.a) ? ' reveal-correct' : ' reveal-wrong';
+    }
+    // Collect picker dots for this option
+    let pickers = '';
+    if (showReveal) {
+      Object.entries(ans).forEach(([pid, aIdx]) => {
+        if (aIdx === i && state.players[pid]) {
+          pickers += `<div class="pick-dot" style="background: ${state.players[pid].color};" title="${escapeHtml(state.players[pid].name)}"></div>`;
+        }
+      });
+    }
+    return `
+      <div class="${cls}">
+        <div class="answer-letter">${letter}</div>
+        <div class="answer-text">${escapeHtml(o)}</div>
+        ${pickers ? `<div class="answer-pickers">${pickers}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  // Player strip
+  const strip = document.getElementById('playerStrip');
+  const playersArr = Object.values(state.players).sort((a,b) => b.score - a.score);
+  strip.innerHTML = playersArr.map(p => {
+    const locked = ans[p.id] !== undefined;
+    let cls = 'pchip';
+    if (locked) cls += ' locked';
+    if (showReveal) {
+      if (ans[p.id] === q.a) cls += ' correct-flash';
+      else if (ans[p.id] !== undefined) cls += ' wrong-flash';
+    }
+    return `
+      <div class="${cls}" style="border-color: ${p.color};">
+        <div class="pchip-avatar" style="background: ${p.deep};">${p.initial}</div>
+        <div class="pchip-info">
+          <div class="pchip-name" style="color: ${p.color};">${escapeHtml(p.name)}</div>
+          <div class="pchip-status ${locked ? 'locked' : ''}">${showReveal ? (ans[p.id] === q.a ? 'Correct' : ans[p.id] === undefined ? 'Missed' : 'Wrong') : (locked ? 'Locked In' : 'Thinking…')}</div>
+        </div>
+        <div class="pchip-score">${p.score}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Reveal banner
+  const banner = document.getElementById('revealBanner');
+  if (showReveal) {
+    banner.classList.add('show');
+    banner.innerHTML = playersArr.map(p => {
+      const cls = ans[p.id] === q.a ? 'correct' : ans[p.id] === undefined ? 'missed' : 'wrong';
+      const status = cls === 'correct' ? '✓' : cls === 'missed' ? '—' : '✗';
+      return `<div class="reveal-pchip ${cls}">${status} ${escapeHtml(p.name)}</div>`;
+    }).join('');
+  } else {
+    banner.classList.remove('show');
+    banner.innerHTML = '';
+  }
+}
+
+function renderFinaleTV() {
+  const playersArr = Object.values(state.players).sort((a,b) => b.score - a.score);
+  const top = playersArr[0];
+  const tied = playersArr.filter(p => p.score === top.score);
+
+  const wEl = document.getElementById('winnerName');
+  const tagEl = document.getElementById('winnerTagline');
+  if (tied.length > 1) {
+    wEl.textContent = "It's a Tie";
+    wEl.style.color = 'var(--gold)';
+    tagEl.textContent = `${tied.map(p => p.name).join(' & ')} all crushed it.`;
+  } else {
+    wEl.textContent = `${top.name} Wins`;
+    wEl.style.color = top.color;
+    const taglines = [
+      `${top.name}'s your lobster.`,
+      `Could ${top.name} BE any more knowledgeable?`,
+      `${top.name} — pivot complete.`,
+      `${top.name} took it. The others were on a break.`
+    ];
+    tagEl.textContent = taglines[Math.floor(Math.random() * taglines.length)];
+  }
+
+  const board = document.getElementById('finaleLeaderboard');
+  board.innerHTML = playersArr.map((p, i) => `
+    <div class="finale-row ${i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : ''}">
+      <div class="finale-rank">${i + 1}</div>
+      <div class="finale-row-avatar" style="background: ${p.deep}; color: ${p.color};">${p.initial}</div>
+      <div class="finale-row-info">
+        <div class="finale-row-name" style="color: ${p.color};">${escapeHtml(p.name)}</div>
+        <div class="finale-row-bracelets">${p.bracelets.map(b => `<div class="bracelet">${escapeHtml(b.label)}</div>`).join('')}</div>
+      </div>
+      <div class="finale-row-score">${p.score}<span class="finale-row-score-of">/ 13</span></div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PHONE RENDER
+// ═══════════════════════════════════════════════════════════════
+function renderPhone() {
+  if (mode !== 'phone') return;
+
+  if (!myPlayerId) {
+    show('ph-picker');
+    renderCharacterPicker();
+    return;
+  }
+
+  if (state.phase === 'lobby' || state.phase === 'countdown') {
+    show('ph-waiting');
+    const me = state.players[myPlayerId];
+    if (me) {
+      document.getElementById('pwBanner').style.borderColor = me.color;
+      document.getElementById('pwAvatar').textContent = me.initial;
+      document.getElementById('pwAvatar').style.background = me.deep;
+      document.getElementById('pwAvatar').style.color = me.color;
+      document.getElementById('pwName').textContent = me.name;
+      document.getElementById('pwName').style.color = me.color;
+    }
+    if (state.phase === 'countdown') {
+      document.getElementById('pwMessage').textContent = 'Get ready…';
+      document.getElementById('pwSubmessage').textContent = 'Game starts in a moment.';
+    } else {
+      const others = Object.keys(state.players).length - 1;
+      document.getElementById('pwMessage').textContent = others > 0
+        ? `You and ${others} ${others === 1 ? 'other' : 'others'} are in.`
+        : "You're in. Waiting for friends.";
+      document.getElementById('pwSubmessage').textContent = 'The host will start the game.';
+    }
+    return;
+  }
+
+  if (state.phase === 'question') {
+    show('ph-question');
+    renderPhoneQuestion();
+    return;
+  }
+  if (state.phase === 'reveal') {
+    show('ph-reveal');
+    renderPhoneReveal();
+    return;
+  }
+  if (state.phase === 'finale') {
+    show('ph-finale');
+    renderPhoneFinale();
+    return;
+  }
+}
+
+function renderCharacterPicker() {
+  const grid = document.getElementById('ppCharGrid');
+  grid.innerHTML = CHARACTERS.map(c => {
+    const taken = Object.values(state.players).some(p => p.character === c.id);
+    return `
+      <button class="pp-char-btn" data-char="${c.id}" style="border-color: ${c.color};" ${taken ? 'disabled' : ''}>
+        <div class="pp-char-avatar" style="background: ${c.deep};">${c.initial}</div>
+        <div class="pp-char-name" style="color: ${c.color};">${c.name}</div>
+        <div class="pp-char-status">${taken ? 'Taken' : 'Available'}</div>
+      </button>
+    `;
+  }).join('');
+
+  grid.querySelectorAll('.pp-char-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const charId = btn.dataset.char;
+      const c = charById(charId);
+      if (!c) return;
+      joinAs({
+        id: cryptoId(),
+        name: c.name,
+        character: c.id,
+        color: c.color,
+        deep: c.deep,
+        initial: c.initial
+      });
+    });
+  });
+}
+
+// Custom name flow
+function setupCustomFlow() {
+  const otherBtn = document.getElementById('ppOtherBtn');
+  const area = document.getElementById('ppCustomArea');
+  const input = document.getElementById('ppCustomInput');
+  const confirm = document.getElementById('ppCustomConfirm');
+
+  otherBtn.addEventListener('click', () => {
+    area.classList.add('active');
+    otherBtn.style.display = 'none';
+    setTimeout(() => input.focus(), 100);
+  });
+  input.addEventListener('input', () => {
+    confirm.disabled = input.value.trim().length < 1;
+  });
+  confirm.addEventListener('click', () => {
+    const name = input.value.trim();
+    if (!name) return;
+    // Auto-assign a color from a fallback palette
+    const fallbackColors = [
+      { color: '#6BC287', deep: '#3D7A52' },
+      { color: '#F19EC4', deep: '#8A4E72' },
+      { color: '#A0D2E8', deep: '#4A7A8E' },
+      { color: '#F5C16E', deep: '#8A6B28' }
+    ];
+    const idx = Object.values(state.players).filter(p => !p.character).length % fallbackColors.length;
+    const fc = fallbackColors[idx];
+    joinAs({
+      id: cryptoId(),
+      name: name.slice(0, 14),
+      character: null,
+      color: fc.color,
+      deep: fc.deep,
+      initial: name.charAt(0).toUpperCase()
+    });
+  });
+}
+
+function joinAs(player) {
+  myPlayerId = player.id;
+  myCharacter = player.character;
+  sendJoin(player);
+  // Optimistic local apply (TV will broadcast the canonical state)
+  setTimeout(renderPhone, 100);
+}
+
+function renderPhoneQuestion() {
+  const q = state.questions[state.currentQ];
+  if (!q) return;
+  const me = state.players[myPlayerId];
+  if (!me) return;
+  document.getElementById('pqDot').style.background = me.color;
+  document.getElementById('pqName').textContent = me.name;
+  document.getElementById('pqName').style.color = me.color;
+  document.getElementById('pqQNum').textContent = q.slot;
+
+  const flag = document.getElementById('pqFlag');
+  if (q.isMastermind) { flag.className = 'pq-flag mastermind'; flag.textContent = '✦ The Big One · 2× Points'; }
+  else if (q.isEaster) { flag.className = 'pq-flag easter'; flag.textContent = '✨ The Twist · 2× Points'; }
+  else if (q.isSurprise) { flag.className = 'pq-flag surprise'; flag.textContent = '♪ The One With The…'; }
+  else flag.className = 'pq-flag hidden';
+
+  document.getElementById('pqText').textContent = q.q;
+
+  const ans = state.answers[state.currentQ] || {};
+  const myAns = ans[myPlayerId];
+  myAnswered = myAns !== undefined;
+
+  const optsEl = document.getElementById('pqOptions');
+  optsEl.innerHTML = q.opts.map((o, i) => {
+    const letter = ['A','B','C','D'][i];
+    const locked = myAns === i;
+    const dis = myAnswered && !locked ? 'disabled' : '';
+    return `<button class="pq-option ${locked ? 'locked' : ''}" data-idx="${i}" ${dis}>
+      <div class="pq-option-letter">${letter}</div>
+      <div class="pq-option-text">${escapeHtml(o)}</div>
+    </button>`;
+  }).join('');
+
+  optsEl.querySelectorAll('.pq-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (myAnswered) return;
+      const idx = parseInt(btn.dataset.idx);
+      myAnswered = true;
+      sendAnswer(idx);
+    });
+  });
+
+  const fill = document.getElementById('pqTimerFill');
+  fill.style.transition = 'none';
+  fill.style.width = '100%';
+  void fill.offsetWidth;
+  const elapsed = (Date.now() - state.questionStartedAt) / 1000;
+  const remaining = Math.max(0, state.timeLimit - elapsed);
+  fill.style.transition = `width ${remaining}s linear`;
+  fill.style.width = '0%';
+}
+
+function renderPhoneReveal() {
+  const q = state.questions[state.currentQ];
+  const ans = state.answers[state.currentQ] || {};
+  const my = ans[myPlayerId];
+  const me = state.players[myPlayerId];
+  const correct = my === q.a;
+  const banner = document.getElementById('prBanner');
+  banner.className = 'pr-banner ' + (correct ? 'correct' : 'wrong');
+  document.getElementById('prResult').textContent = correct ? 'CORRECT' : (my === undefined ? 'MISSED' : 'WRONG');
+
+  let msg = '';
+  if (correct && (q.isMastermind || q.isEaster)) msg = 'Bonus question — double points!';
+  else if (correct && me) msg = me.streak >= 3 ? `Streak ×${me.streak}` : '+1 point';
+  else if (my === undefined) msg = 'Out of time';
+  else msg = 'Tough one.';
+  document.getElementById('prMessage').textContent = msg;
+  document.getElementById('prCorrect').textContent = `Answer: ${q.opts[q.a]}`;
+  document.getElementById('prQNum').textContent = q.slot;
+
+  const wrap = document.getElementById('prBraceletWrap');
+  wrap.innerHTML = '';
+  if (me && me.bracelets.length) {
+    const last = me.bracelets[me.bracelets.length - 1];
+    wrap.innerHTML = `<div class="pr-bracelet">+ ${escapeHtml(last.label)}</div>`;
+  }
+}
+
+function renderPhoneFinale() {
+  const me = state.players[myPlayerId];
+  if (!me) return;
+  const playersArr = Object.values(state.players).sort((a,b) => b.score - a.score);
+  const myRank = playersArr.findIndex(p => p.id === myPlayerId) + 1;
+  const winner = playersArr[0];
+
+  const el = document.getElementById('pfResult');
+  if (myRank === 1 && playersArr.filter(p => p.score === me.score).length === 1) {
+    el.textContent = 'YOU WIN';
+    el.style.color = 'var(--correct)';
+  } else if (myRank === 1) {
+    el.textContent = 'TIED FOR 1ST';
+    el.style.color = 'var(--gold)';
+  } else {
+    el.textContent = `#${myRank}`;
+    el.style.color = me.color;
+  }
+  document.getElementById('pfRank').textContent = myRank === 1 ? 'The Lobster.' : `${winner.name} took it.`;
+  document.getElementById('pfYouScore').textContent = me.score;
+  document.getElementById('pfBracelets').innerHTML = me.bracelets.map(b => `<div class="bracelet">${escapeHtml(b.label)}</div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════
+function charById(id) { return CHARACTERS.find(c => c.id === id); }
+function cryptoId() {
+  return 'p_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+function escapeHtml(s) {
+  if (typeof s !== 'string') return '';
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  WIRING
+// ═══════════════════════════════════════════════════════════════
+if (mode === 'tv') {
+  const phoneURL = location.origin + location.pathname + '?play=1';
+  document.getElementById('lobbyQR').src =
+    'https://api.qrserver.com/v1/create-qr-code/?data=' + encodeURIComponent(phoneURL) + '&size=400x400&margin=10';
+  document.getElementById('lobbyURL').textContent = phoneURL;
+  document.getElementById('startGameBtn').addEventListener('click', () => {
+    if (Object.keys(state.players).length >= 2) startCountdown();
+  });
+  document.getElementById('playAgainBtn').addEventListener('click', resetGame);
+  initChannel();
+  renderTV();
+}
+
+if (mode === 'phone') {
+  setupCustomFlow();
+  initChannel();
+  renderPhone();
+}
+</script>
+</body>
+</html>
